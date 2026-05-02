@@ -97,7 +97,6 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
     let total_items = app.rules.len() + 1;
 
-
     let mut rows: Vec<Row> = app
         .rules
         .iter()
@@ -108,7 +107,11 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         })
         .collect();
 
-    let add_rule_prefix = if total_items - 1 == app.rule_cursor { ">> " } else { "   " };
+    let add_rule_prefix = if total_items - 1 == app.rule_cursor {
+        ">> "
+    } else {
+        "   "
+    };
     rows.push(Row::new(vec![format!("{}Add Rule", add_rule_prefix)]));
 
     let table = Table::new(rows, [Constraint::Min(0)]).block(block);
@@ -179,7 +182,12 @@ fn render_rule_select_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &A
             Style::default().fg(Color::White)
         };
         lines.push(Line::from(Span::styled(
-            format!("  {}  {}  {}", key, item, if i == app.dialog_cursor { ">>" } else { "  " }),
+            format!(
+                "  {}  {}  {}",
+                key,
+                item,
+                if i == app.dialog_cursor { ">>" } else { "  " }
+            ),
             style,
         )));
     }
@@ -334,6 +342,35 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 }
 
 fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
+    let help_text = if app.dialog_mode != RuleDialogMode::None {
+        match app.dialog_mode {
+            RuleDialogMode::SelectRule => "  << Add Rule >>  enter:select  1-6:select  esc:cancel",
+            RuleDialogMode::FindReplace => match app.rule_input_step {
+                RuleInputStep::InputText => "  Find pattern: enter:next  esc:cancel",
+                RuleInputStep::InputReplace => "  Replace with: enter:next  esc:cancel",
+                RuleInputStep::ConfirmRegex => "  Use regex (y/n): enter:confirm  esc:cancel",
+                _ => "  << Find/Replace >>  enter:confirm  esc:cancel",
+            },
+            RuleDialogMode::Prefix => "  << Add Prefix >>  enter:confirm  esc:cancel",
+            RuleDialogMode::Suffix => "  << Add Suffix >>  enter:confirm  esc:cancel",
+            RuleDialogMode::RemovePattern => "  << Remove Pattern >>  enter:confirm  esc:cancel",
+            RuleDialogMode::Numbering => match app.rule_input_step {
+                RuleInputStep::InputNumber => "  Start number: enter:next  esc:cancel",
+                RuleInputStep::InputWidth => "  Width (digits): enter:next  esc:cancel",
+                RuleInputStep::InputPlaceholder => {
+                    "  Placeholder (e.g. ##): enter:confirm  esc:cancel"
+                }
+                _ => "  << Numbering >>  enter:confirm  esc:cancel",
+            },
+            RuleDialogMode::Case => {
+                "  << Change Case >>  1:UPPER  2:lower  3:Title  4:tOGGLE  esc:cancel"
+            }
+            RuleDialogMode::None => unreachable!(),
+        }
+    } else {
+        &" arrows:navigate  tab:panel  enter:Add Rule  d:del  r:dry-run  R:rename  q:quit"
+    };
+
     let msg = if let Some(ref err) = app.error_msg {
         format!("{} | ERR: {}", app.status_msg, err)
     } else {
@@ -342,10 +379,11 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
     let status = Paragraph::new(Line::from(Span::styled(
         format!(
-            " {} | Files: {} | Rules: {} ",
+            " {} | Files: {} | Rules: {}{} ",
             msg,
             app.files.len(),
-            app.rules.len()
+            app.rules.len(),
+            help_text
         ),
         Style::default()
             .fg(Color::White)
@@ -417,126 +455,124 @@ fn handle_rules_key(app: &mut App, key: KeyEvent) {
 
 fn handle_dialog_key(app: &mut App, key: KeyEvent) {
     match app.dialog_mode {
-        RuleDialogMode::SelectRule => {
-            match key.code {
-                event::KeyCode::Down => {
-                    if app.dialog_cursor < 5 {
-                        app.dialog_cursor += 1;
-                    }
+        RuleDialogMode::SelectRule => match key.code {
+            event::KeyCode::Down => {
+                if app.dialog_cursor < 5 {
+                    app.dialog_cursor += 1;
                 }
-                event::KeyCode::Up => {
-                    if app.dialog_cursor > 0 {
-                        app.dialog_cursor -= 1;
-                    }
+            }
+            event::KeyCode::Up => {
+                if app.dialog_cursor > 0 {
+                    app.dialog_cursor -= 1;
                 }
-                event::KeyCode::Enter => {
-                    let rule = match app.dialog_cursor {
-                        0 => {
-                            app.dialog_mode = RuleDialogMode::FindReplace;
-                            app.rule_input_step = RuleInputStep::InputText;
-                            app.rule_input_buffer.clear();
-                            None
-                        }
-                        1 => {
-                            app.dialog_mode = RuleDialogMode::Prefix;
-                            app.rule_input_step = RuleInputStep::InputText;
-                            app.rule_input_buffer.clear();
-                            None
-                        }
-                        2 => {
-                            app.dialog_mode = RuleDialogMode::Suffix;
-                            app.rule_input_step = RuleInputStep::InputText;
-                            app.rule_input_buffer.clear();
-                            None
-                        }
-                        3 => {
-                            app.dialog_mode = RuleDialogMode::Case;
-                            app.rule_input_step = RuleInputStep::SelectCase;
-                            app.rule_input_buffer.clear();
-                            None
-                        }
-                        4 => {
-                            app.dialog_mode = RuleDialogMode::RemovePattern;
-                            app.rule_input_step = RuleInputStep::InputText;
-                            app.rule_input_buffer.clear();
-                            None
-                        }
-                        5 => {
-                            app.dialog_mode = RuleDialogMode::Numbering;
-                            app.rule_input_step = RuleInputStep::InputNumber;
-                            app.rule_input_buffer.clear();
-                            None
-                        }
-                        _ => None,
-                    };
-                    if let Some(r) = rule {
-                        app.add_rule(r);
-                        app.clear_input();
-                    }
-                }
-                event::KeyCode::Char('1') => {
-                    if app.dialog_cursor != 0 {
-                        app.dialog_cursor = 0;
-                    } else {
+            }
+            event::KeyCode::Enter => {
+                let rule = match app.dialog_cursor {
+                    0 => {
                         app.dialog_mode = RuleDialogMode::FindReplace;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
+                        None
                     }
-                }
-                event::KeyCode::Char('2') => {
-                    if app.dialog_cursor != 1 {
-                        app.dialog_cursor = 1;
-                    } else {
+                    1 => {
                         app.dialog_mode = RuleDialogMode::Prefix;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
+                        None
                     }
-                }
-                event::KeyCode::Char('3') => {
-                    if app.dialog_cursor != 2 {
-                        app.dialog_cursor = 2;
-                    } else {
+                    2 => {
                         app.dialog_mode = RuleDialogMode::Suffix;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
+                        None
                     }
-                }
-                event::KeyCode::Char('4') => {
-                    if app.dialog_cursor != 3 {
-                        app.dialog_cursor = 3;
-                    } else {
+                    3 => {
                         app.dialog_mode = RuleDialogMode::Case;
                         app.rule_input_step = RuleInputStep::SelectCase;
                         app.rule_input_buffer.clear();
+                        None
                     }
-                }
-                event::KeyCode::Char('5') => {
-                    if app.dialog_cursor != 4 {
-                        app.dialog_cursor = 4;
-                    } else {
+                    4 => {
                         app.dialog_mode = RuleDialogMode::RemovePattern;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
+                        None
                     }
-                }
-                event::KeyCode::Char('6') => {
-                    if app.dialog_cursor != 5 {
-                        app.dialog_cursor = 5;
-                    } else {
+                    5 => {
                         app.dialog_mode = RuleDialogMode::Numbering;
                         app.rule_input_step = RuleInputStep::InputNumber;
                         app.rule_input_buffer.clear();
+                        None
                     }
-                }
-                event::KeyCode::Esc => {
+                    _ => None,
+                };
+                if let Some(r) = rule {
+                    app.add_rule(r);
                     app.clear_input();
                 }
-                event::KeyCode::Char('q') => {
-                    app.clear_input();
-                }
-                _ => {}
             }
-        }
+            event::KeyCode::Char('1') => {
+                if app.dialog_cursor != 0 {
+                    app.dialog_cursor = 0;
+                } else {
+                    app.dialog_mode = RuleDialogMode::FindReplace;
+                    app.rule_input_step = RuleInputStep::InputText;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Char('2') => {
+                if app.dialog_cursor != 1 {
+                    app.dialog_cursor = 1;
+                } else {
+                    app.dialog_mode = RuleDialogMode::Prefix;
+                    app.rule_input_step = RuleInputStep::InputText;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Char('3') => {
+                if app.dialog_cursor != 2 {
+                    app.dialog_cursor = 2;
+                } else {
+                    app.dialog_mode = RuleDialogMode::Suffix;
+                    app.rule_input_step = RuleInputStep::InputText;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Char('4') => {
+                if app.dialog_cursor != 3 {
+                    app.dialog_cursor = 3;
+                } else {
+                    app.dialog_mode = RuleDialogMode::Case;
+                    app.rule_input_step = RuleInputStep::SelectCase;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Char('5') => {
+                if app.dialog_cursor != 4 {
+                    app.dialog_cursor = 4;
+                } else {
+                    app.dialog_mode = RuleDialogMode::RemovePattern;
+                    app.rule_input_step = RuleInputStep::InputText;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Char('6') => {
+                if app.dialog_cursor != 5 {
+                    app.dialog_cursor = 5;
+                } else {
+                    app.dialog_mode = RuleDialogMode::Numbering;
+                    app.rule_input_step = RuleInputStep::InputNumber;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Esc => {
+                app.clear_input();
+            }
+            event::KeyCode::Char('q') => {
+                app.clear_input();
+            }
+            _ => {}
+        },
         _ => {
             if key.code == event::KeyCode::Char('q') {
                 app.clear_input();
