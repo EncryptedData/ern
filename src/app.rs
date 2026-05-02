@@ -52,7 +52,10 @@ pub enum RuleInputStep {
 
 impl App {
     pub fn new() -> Self {
-        let current_dir = std::env::current_dir().unwrap_or_default();
+        let current_dir = std::env::args()
+            .nth(1)
+            .map(PathBuf::from)
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
         let files = load_files(&current_dir);
 
         Self {
