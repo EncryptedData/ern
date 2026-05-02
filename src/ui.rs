@@ -219,7 +219,7 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     let total_files = app.files.len();
 
     let start = app.file_scroll;
-    let end = (start + visible_height).min(total_files);
+    let end = (start + visible_height / 2).min(total_files);
 
     let mut rows: Vec<Row<'_>> = Vec::new();
 
@@ -352,9 +352,9 @@ fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
             if !app.files.is_empty() && app.file_cursor < app.files.len().saturating_sub(1) {
                 app.file_cursor += 1;
             }
-            let vh = visible_height as usize;
-            if app.file_cursor >= app.file_scroll + vh {
-                app.file_scroll = app.file_cursor - vh + 1;
+            let vf = visible_height as usize / 2;
+            if app.file_cursor >= app.file_scroll + vf {
+                app.file_scroll = app.file_cursor - vf + 1;
             }
         }
         event::KeyCode::Up => {
@@ -376,16 +376,16 @@ fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
             }
         }
         event::KeyCode::Char('d') => {
-            let vh = visible_height as usize;
-            if app.file_cursor + vh < app.files.len() {
-                app.file_scroll = (app.file_scroll + vh / 2).min(app.files.len().saturating_sub(1));
+            let vf = visible_height as usize / 2;
+            if app.file_cursor + vf < app.files.len() {
+                app.file_scroll = (app.file_scroll + vf).min(app.files.len().saturating_sub(1));
                 app.file_cursor = app.file_scroll;
             }
         }
         event::KeyCode::Char('u') => {
-            let vh = visible_height as usize;
+            let vf = visible_height as usize / 2;
             if app.file_scroll > 0 {
-                app.file_scroll = app.file_scroll.saturating_sub(vh / 2);
+                app.file_scroll = app.file_scroll.saturating_sub(vf);
                 app.file_cursor = app.file_scroll;
             }
         }
