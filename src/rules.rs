@@ -2,12 +2,20 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum RenameRule {
-    FindReplace { find: String, replace: String, regex: bool },
+    FindReplace {
+        find: String,
+        replace: String,
+        regex: bool,
+    },
     AddPrefix(String),
     AddSuffix(String),
     ChangeCase(CaseTransform),
     RemovePattern(String),
-    Numbering { start: u32, width: usize, placeholder: String },
+    Numbering {
+        start: u32,
+        width: usize,
+        placeholder: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -32,7 +40,11 @@ impl fmt::Display for CaseTransform {
 impl fmt::Display for RenameRule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RenameRule::FindReplace { find, replace, regex } => {
+            RenameRule::FindReplace {
+                find,
+                replace,
+                regex,
+            } => {
                 let flag = if *regex { "[rx]" } else { "" };
                 write!(f, "{}find '{}' → '{}'", flag, find, replace)
             }
@@ -40,7 +52,11 @@ impl fmt::Display for RenameRule {
             RenameRule::AddSuffix(s) => write!(f, "suffix '{}'", s),
             RenameRule::ChangeCase(t) => write!(f, "case {}", t),
             RenameRule::RemovePattern(s) => write!(f, "remove '{}'", s),
-            RenameRule::Numbering { start, width: _, placeholder } => {
+            RenameRule::Numbering {
+                start,
+                width: _,
+                placeholder,
+            } => {
                 write!(f, "number {}.. ({})", start, placeholder)
             }
         }
@@ -53,7 +69,11 @@ impl RenameRule {
         let mut new_name = name.to_string();
 
         match self {
-            RenameRule::FindReplace { find, replace, regex } => {
+            RenameRule::FindReplace {
+                find,
+                replace,
+                regex,
+            } => {
                 if *regex {
                     if let Some(re) = regex::Regex::new(find).ok() {
                         new_name = re.replace_all(&new_name, replace.as_str()).to_string();
@@ -78,7 +98,11 @@ impl RenameRule {
                     new_name = new_name.replace(s, "");
                 }
             }
-            RenameRule::Numbering { start, width, placeholder } => {
+            RenameRule::Numbering {
+                start,
+                width,
+                placeholder,
+            } => {
                 let num_str = format!("{:0>width$}", start + index, width = *width);
                 new_name = new_name.replace(placeholder, &num_str);
             }
@@ -96,7 +120,11 @@ impl RenameRule {
         let mut new_name = stem.to_string();
 
         match self {
-            RenameRule::FindReplace { find, replace, regex } => {
+            RenameRule::FindReplace {
+                find,
+                replace,
+                regex,
+            } => {
                 if *regex {
                     if let Some(re) = regex::Regex::new(find).ok() {
                         new_name = re.replace_all(&new_name, replace.as_str()).to_string();
@@ -121,7 +149,11 @@ impl RenameRule {
                     new_name = new_name.replace(s, "");
                 }
             }
-            RenameRule::Numbering { start, width, placeholder } => {
+            RenameRule::Numbering {
+                start,
+                width,
+                placeholder,
+            } => {
                 let num_str = format!("{:0>width$}", start + index, width = *width);
                 new_name = new_name.replace(placeholder, &num_str);
             }
@@ -151,13 +183,16 @@ fn apply_case(s: &str, transform: &CaseTransform) -> String {
             }
             result
         }
-        CaseTransform::Toggle => s.chars().map(|c| {
-            if c.is_uppercase() {
-                c.to_lowercase().to_string()
-            } else {
-                c.to_uppercase().to_string()
-            }
-        }).collect(),
+        CaseTransform::Toggle => s
+            .chars()
+            .map(|c| {
+                if c.is_uppercase() {
+                    c.to_lowercase().to_string()
+                } else {
+                    c.to_uppercase().to_string()
+                }
+            })
+            .collect(),
     }
 }
 

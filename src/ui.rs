@@ -16,7 +16,8 @@ pub fn run(mut app: App) -> color_eyre::Result<()> {
     result
 }
 
-fn init_terminal() -> color_eyre::Result<Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
+fn init_terminal(
+) -> color_eyre::Result<Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
     crossterm::terminal::enable_raw_mode()?;
     execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen)?;
     execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
@@ -36,7 +37,12 @@ fn main_loop(
     terminal: &mut Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
 ) -> color_eyre::Result<()> {
     while app.running {
-        let visible_height = terminal.size().ok().map(|s| s.height).unwrap_or(24).saturating_sub(3);
+        let visible_height = terminal
+            .size()
+            .ok()
+            .map(|s| s.height)
+            .unwrap_or(24)
+            .saturating_sub(3);
 
         terminal.draw(|frame| render(frame, app))?;
 
@@ -77,7 +83,9 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     };
 
     let title_style = if is_active {
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::REVERSED)
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::REVERSED)
     } else {
         Style::default().fg(Color::DarkGray)
     };
@@ -102,17 +110,44 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
     if app.rules.is_empty() && app.rule_input_mode == RuleInputMode::None {
         let hint = Paragraph::new(vec![
-            Line::from(Span::styled("No rules yet.", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled(
+                "No rules yet.",
+                Style::default().fg(Color::DarkGray),
+            )),
             Line::from(""),
-            Line::from(Span::styled("Add rule (while in rules panel):", Style::default().fg(Color::Gray))),
-            Line::from(Span::styled("  f  find+replace", Style::default().fg(Color::DarkGray))),
-            Line::from(Span::styled("  p  add prefix", Style::default().fg(Color::DarkGray))),
-            Line::from(Span::styled("  s  add suffix", Style::default().fg(Color::DarkGray))),
-            Line::from(Span::styled("  c  change case", Style::default().fg(Color::DarkGray))),
-            Line::from(Span::styled("  r  remove pattern", Style::default().fg(Color::DarkGray))),
-            Line::from(Span::styled("  n  numbering", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled(
+                "Add rule (while in rules panel):",
+                Style::default().fg(Color::Gray),
+            )),
+            Line::from(Span::styled(
+                "  f  find+replace",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(Span::styled(
+                "  p  add prefix",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(Span::styled(
+                "  s  add suffix",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(Span::styled(
+                "  c  change case",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(Span::styled(
+                "  r  remove pattern",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(Span::styled(
+                "  n  numbering",
+                Style::default().fg(Color::DarkGray),
+            )),
             Line::from(""),
-            Line::from(Span::styled("  d  delete rule", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled(
+                "  d  delete rule",
+                Style::default().fg(Color::DarkGray),
+            )),
         ]);
         frame.render_widget(hint, area);
     }
@@ -133,7 +168,9 @@ fn render_rule_input(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         (RuleInputMode::Numbering, RuleInputStep::InputNumber) => "Start number:",
         (RuleInputMode::Numbering, RuleInputStep::InputWidth) => "Width (digits):",
         (RuleInputMode::Numbering, RuleInputStep::InputPlaceholder) => "Placeholder (e.g. ##):",
-        (RuleInputMode::Case, RuleInputStep::SelectCase) => "Case: 1=UPPER 2=lower 3=Title 4=tOGGLE",
+        (RuleInputMode::Case, RuleInputStep::SelectCase) => {
+            "Case: 1=UPPER 2=lower 3=Title 4=tOGGLE"
+        }
         _ => "Input:",
     };
 
@@ -163,7 +200,9 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     };
 
     let title_style = if is_active {
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::REVERSED)
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::REVERSED)
     } else {
         Style::default().fg(Color::DarkGray)
     };
@@ -208,8 +247,6 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     frame.render_widget(table, area);
 }
 
-
-
 fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     let msg = if let Some(ref err) = app.error_msg {
         format!("{} | ERR: {}", app.status_msg, err)
@@ -218,7 +255,12 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     };
 
     let status = Paragraph::new(Line::from(Span::styled(
-        format!(" {} | Files: {} | Rules: {} ", msg, app.files.len(), app.rules.len()),
+        format!(
+            " {} | Files: {} | Rules: {} ",
+            msg,
+            app.files.len(),
+            app.rules.len()
+        ),
         Style::default()
             .fg(Color::White)
             .bg(Color::DarkGray)
@@ -420,7 +462,11 @@ fn submit_rule_input(app: &mut App) {
         }
         (RuleInputMode::FindReplace, RuleInputStep::ConfirmRegex) => {
             if let Some(find) = app.find_replace_find.take() {
-                let is_regex = buf.chars().next().map(|c| c == 'y' || c == 'Y').unwrap_or(false);
+                let is_regex = buf
+                    .chars()
+                    .next()
+                    .map(|c| c == 'y' || c == 'Y')
+                    .unwrap_or(false);
                 app.add_rule(RenameRule::FindReplace {
                     find,
                     replace: buf,
