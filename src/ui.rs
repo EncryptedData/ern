@@ -6,7 +6,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Row, Table};
 use ratatui::Terminal;
 
-use crate::app::{App, Panel, RuleInputMode, RuleInputStep};
+use crate::app::{App, Panel, RuleDialogMode, RuleInputStep};
 use crate::rules::{apply_rules, CaseTransform, RenameRule};
 
 pub fn run(mut app: App) -> color_eyre::Result<()> {
@@ -95,7 +95,10 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         .title(Line::from(Span::styled(" Rename Rules ", title_style)))
         .border_style(border_style);
 
-    let rows: Vec<Row> = app
+    let total_items = app.rules.len() + 1;
+
+
+    let mut rows: Vec<Row> = app
         .rules
         .iter()
         .enumerate()
@@ -105,90 +108,173 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         })
         .collect();
 
+    let add_rule_prefix = if total_items - 1 == app.rule_cursor { ">> " } else { "   " };
+    rows.push(Row::new(vec![format!("{}Add Rule", add_rule_prefix)]));
+
     let table = Table::new(rows, [Constraint::Min(0)]).block(block);
     frame.render_widget(table, area);
 
-    if app.rules.is_empty() && app.rule_input_mode == RuleInputMode::None {
-        let hint = Paragraph::new(vec![
-            Line::from(Span::styled(
-                "No rules yet.",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(""),
-            Line::from(Span::styled(
-                "Add rule (while in rules panel):",
-                Style::default().fg(Color::Gray),
-            )),
-            Line::from(Span::styled(
-                "  f  find+replace",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(Span::styled(
-                "  p  add prefix",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(Span::styled(
-                "  s  add suffix",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(Span::styled(
-                "  c  change case",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(Span::styled(
-                "  r  remove pattern",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(Span::styled(
-                "  n  numbering",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(""),
-            Line::from(Span::styled(
-                "  d  delete rule",
-                Style::default().fg(Color::DarkGray),
-            )),
-        ]);
-        frame.render_widget(hint, area);
-    }
-
-    if app.rule_input_mode != RuleInputMode::None {
-        render_rule_input(frame, area, app);
+    if app.dialog_mode != RuleDialogMode::None {
+        render_dialog(frame, area, app);
     }
 }
 
-fn render_rule_input(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
-    let prompt = match (app.rule_input_mode, app.rule_input_step) {
-        (RuleInputMode::FindReplace, RuleInputStep::InputText) => "Find pattern:",
-        (RuleInputMode::FindReplace, RuleInputStep::InputReplace) => "Replace with:",
-        (RuleInputMode::FindReplace, RuleInputStep::ConfirmRegex) => "Use regex? (y/n):",
-        (RuleInputMode::Prefix, RuleInputStep::InputText) => "Prefix string:",
-        (RuleInputMode::Suffix, RuleInputStep::InputText) => "Suffix string:",
-        (RuleInputMode::RemovePattern, RuleInputStep::InputText) => "Pattern to remove:",
-        (RuleInputMode::Numbering, RuleInputStep::InputNumber) => "Start number:",
-        (RuleInputMode::Numbering, RuleInputStep::InputWidth) => "Width (digits):",
-        (RuleInputMode::Numbering, RuleInputStep::InputPlaceholder) => "Placeholder (e.g. ##):",
-        (RuleInputMode::Case, RuleInputStep::SelectCase) => {
+fn render_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
+    if app.dialog_mode == RuleDialogMode::SelectRule {
+        render_rule_select_dialog(frame, area, app);
+    } else {
+        render_rule_input_dialog(frame, area, app);
+    }
+}
+
+fn render_rule_select_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
+    let items = [
+        "Find/Replace",
+        "Add Prefix",
+        "Add Suffix",
+        "Change Case",
+        "Remove Pattern",
+        "Numbering",
+    ];
+
+    let item_count: u16 = items.len() as u16;
+    let padding: u16 = 5;
+    let dialog_height = item_count + padding;
+    let dialog_width: u16 = 40;
+    let x = area.x + area.width.saturating_sub(dialog_width) / 2;
+    let y = area.y + area.height.saturating_sub(dialog_height) / 2;
+    let dialog_area = Rect {
+        x,
+        y,
+        width: dialog_width.min(area.width),
+        height: dialog_height.min(area.height),
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(Line::from(Span::styled(
+            " Add Rule ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::REVERSED),
+        )));
+
+    let mut lines: Vec<Line> = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            " Select a rule type:",
+            Style::default().fg(Color::Gray),
+        )),
+        Line::from(""),
+    ];
+
+    for (i, item) in items.iter().enumerate() {
+        let key = (b'1' + i as u8) as char;
+        let style = if i == app.dialog_cursor {
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        lines.push(Line::from(Span::styled(
+            format!("  {}  {}  {}", key, item, if i == app.dialog_cursor { ">>" } else { "  " }),
+            style,
+        )));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  enter:select  esc:cancel",
+        Style::default().fg(Color::Gray),
+    )));
+
+    let content = Paragraph::new(lines).block(block);
+    frame.render_widget(content, dialog_area);
+}
+
+fn render_rule_input_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
+    let dialog_height: u16 = 14;
+    let dialog_width: u16 = 50;
+    let x = area.x + area.width.saturating_sub(dialog_width) / 2;
+    let y = area.y + area.height.saturating_sub(dialog_height) / 2;
+    let dialog_area = Rect {
+        x,
+        y,
+        width: dialog_width.min(area.width),
+        height: dialog_height.min(area.height),
+    };
+
+    let title = match app.dialog_mode {
+        RuleDialogMode::FindReplace => " Find/Replace Rule ",
+        RuleDialogMode::Prefix => " Add Prefix Rule ",
+        RuleDialogMode::Suffix => " Add Suffix Rule ",
+        RuleDialogMode::Case => " Change Case Rule ",
+        RuleDialogMode::RemovePattern => " Remove Pattern Rule ",
+        RuleDialogMode::Numbering => " Numbering Rule ",
+        _ => " Add Rule ",
+    };
+
+    let prompt = match (app.dialog_mode, app.rule_input_step) {
+        (RuleDialogMode::FindReplace, RuleInputStep::InputText) => "Find pattern:",
+        (RuleDialogMode::FindReplace, RuleInputStep::InputReplace) => "Replace with:",
+        (RuleDialogMode::FindReplace, RuleInputStep::ConfirmRegex) => "Use regex? (y/n):",
+        (RuleDialogMode::Prefix, RuleInputStep::InputText) => "Prefix string:",
+        (RuleDialogMode::Suffix, RuleInputStep::InputText) => "Suffix string:",
+        (RuleDialogMode::RemovePattern, RuleInputStep::InputText) => "Pattern to remove:",
+        (RuleDialogMode::Numbering, RuleInputStep::InputNumber) => "Start number:",
+        (RuleDialogMode::Numbering, RuleInputStep::InputWidth) => "Width (digits):",
+        (RuleDialogMode::Numbering, RuleInputStep::InputPlaceholder) => "Placeholder (e.g. ##):",
+        (RuleDialogMode::Case, RuleInputStep::SelectCase) => {
             "Case: 1=UPPER 2=lower 3=Title 4=tOGGLE"
         }
         _ => "Input:",
     };
 
-    let input_text = format!("> {} {}|", prompt, app.rule_input_buffer);
-    let input_para = Paragraph::new(input_text).style(
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(Line::from(Span::styled(
+            title,
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::REVERSED),
+        )));
+
+    let input_line = Line::from(Span::styled(
+        format!("> {} {}|", prompt, app.rule_input_buffer),
         Style::default()
             .fg(Color::Yellow)
             .add_modifier(Modifier::BOLD),
-    );
+    ));
 
-    let input_area = Rect {
-        x: area.x,
-        y: area.y + area.height.saturating_sub(2),
-        width: area.width,
-        height: 1,
+    let hint_line = match app.dialog_mode {
+        RuleDialogMode::Case => Line::from(Span::styled(
+            "  enter:confirm  esc:cancel",
+            Style::default().fg(Color::Gray),
+        )),
+        _ => Line::from(Span::styled(
+            "  enter:next  esc:cancel",
+            Style::default().fg(Color::Gray),
+        )),
     };
 
-    frame.render_widget(input_para, input_area);
+    #[allow(clippy::useless_vec)]
+    let lines = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            " Enter the value:",
+            Style::default().fg(Color::Gray),
+        )),
+        Line::from(""),
+        input_line,
+        Line::from(""),
+        hint_line,
+    ];
+
+    let content = Paragraph::new(lines).block(block);
+    frame.render_widget(content, dialog_area);
 }
 
 fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
@@ -271,8 +357,8 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 }
 
 fn handle_key(app: &mut App, key: KeyEvent, visible_height: u16) {
-    if app.rule_input_mode != RuleInputMode::None {
-        handle_rule_input_key(app, key);
+    if app.dialog_mode != RuleDialogMode::None {
+        handle_dialog_key(app, key);
         return;
     }
 
@@ -299,14 +385,11 @@ fn handle_key(app: &mut App, key: KeyEvent, visible_height: u16) {
 }
 
 fn handle_rules_key(app: &mut App, key: KeyEvent) {
-    if app.rule_input_mode != RuleInputMode::None {
-        handle_rule_input_key(app, key);
-        return;
-    }
+    let total_items = app.rules.len() + 1;
 
     match key.code {
         event::KeyCode::Down => {
-            if app.rule_cursor < app.rules.len().saturating_sub(1) {
+            if app.rule_cursor < total_items.saturating_sub(1) {
                 app.rule_cursor += 1;
             }
         }
@@ -316,33 +399,151 @@ fn handle_rules_key(app: &mut App, key: KeyEvent) {
             }
         }
         event::KeyCode::Char('d') => {
-            app.remove_rule();
+            if app.rule_cursor < app.rules.len() {
+                app.remove_rule();
+            }
         }
-        event::KeyCode::Char('f') => {
-            app.rule_input_mode = RuleInputMode::FindReplace;
-            app.rule_input_step = RuleInputStep::InputText;
-        }
-        event::KeyCode::Char('p') => {
-            app.rule_input_mode = RuleInputMode::Prefix;
-            app.rule_input_step = RuleInputStep::InputText;
-        }
-        event::KeyCode::Char('s') => {
-            app.rule_input_mode = RuleInputMode::Suffix;
-            app.rule_input_step = RuleInputStep::InputText;
-        }
-        event::KeyCode::Char('c') => {
-            app.rule_input_mode = RuleInputMode::Case;
-            app.rule_input_step = RuleInputStep::SelectCase;
-        }
-        event::KeyCode::Char('r') => {
-            app.rule_input_mode = RuleInputMode::RemovePattern;
-            app.rule_input_step = RuleInputStep::InputText;
-        }
-        event::KeyCode::Char('n') => {
-            app.rule_input_mode = RuleInputMode::Numbering;
-            app.rule_input_step = RuleInputStep::InputNumber;
+        event::KeyCode::Enter => {
+            if app.rule_cursor == app.rules.len() {
+                app.dialog_mode = RuleDialogMode::SelectRule;
+                app.dialog_cursor = 0;
+                app.rule_input_buffer.clear();
+                app.rule_input_step = RuleInputStep::Waiting;
+            }
         }
         _ => {}
+    }
+}
+
+fn handle_dialog_key(app: &mut App, key: KeyEvent) {
+    match app.dialog_mode {
+        RuleDialogMode::SelectRule => {
+            match key.code {
+                event::KeyCode::Down => {
+                    if app.dialog_cursor < 5 {
+                        app.dialog_cursor += 1;
+                    }
+                }
+                event::KeyCode::Up => {
+                    if app.dialog_cursor > 0 {
+                        app.dialog_cursor -= 1;
+                    }
+                }
+                event::KeyCode::Enter => {
+                    let rule = match app.dialog_cursor {
+                        0 => {
+                            app.dialog_mode = RuleDialogMode::FindReplace;
+                            app.rule_input_step = RuleInputStep::InputText;
+                            app.rule_input_buffer.clear();
+                            None
+                        }
+                        1 => {
+                            app.dialog_mode = RuleDialogMode::Prefix;
+                            app.rule_input_step = RuleInputStep::InputText;
+                            app.rule_input_buffer.clear();
+                            None
+                        }
+                        2 => {
+                            app.dialog_mode = RuleDialogMode::Suffix;
+                            app.rule_input_step = RuleInputStep::InputText;
+                            app.rule_input_buffer.clear();
+                            None
+                        }
+                        3 => {
+                            app.dialog_mode = RuleDialogMode::Case;
+                            app.rule_input_step = RuleInputStep::SelectCase;
+                            app.rule_input_buffer.clear();
+                            None
+                        }
+                        4 => {
+                            app.dialog_mode = RuleDialogMode::RemovePattern;
+                            app.rule_input_step = RuleInputStep::InputText;
+                            app.rule_input_buffer.clear();
+                            None
+                        }
+                        5 => {
+                            app.dialog_mode = RuleDialogMode::Numbering;
+                            app.rule_input_step = RuleInputStep::InputNumber;
+                            app.rule_input_buffer.clear();
+                            None
+                        }
+                        _ => None,
+                    };
+                    if let Some(r) = rule {
+                        app.add_rule(r);
+                        app.clear_input();
+                    }
+                }
+                event::KeyCode::Char('1') => {
+                    if app.dialog_cursor != 0 {
+                        app.dialog_cursor = 0;
+                    } else {
+                        app.dialog_mode = RuleDialogMode::FindReplace;
+                        app.rule_input_step = RuleInputStep::InputText;
+                        app.rule_input_buffer.clear();
+                    }
+                }
+                event::KeyCode::Char('2') => {
+                    if app.dialog_cursor != 1 {
+                        app.dialog_cursor = 1;
+                    } else {
+                        app.dialog_mode = RuleDialogMode::Prefix;
+                        app.rule_input_step = RuleInputStep::InputText;
+                        app.rule_input_buffer.clear();
+                    }
+                }
+                event::KeyCode::Char('3') => {
+                    if app.dialog_cursor != 2 {
+                        app.dialog_cursor = 2;
+                    } else {
+                        app.dialog_mode = RuleDialogMode::Suffix;
+                        app.rule_input_step = RuleInputStep::InputText;
+                        app.rule_input_buffer.clear();
+                    }
+                }
+                event::KeyCode::Char('4') => {
+                    if app.dialog_cursor != 3 {
+                        app.dialog_cursor = 3;
+                    } else {
+                        app.dialog_mode = RuleDialogMode::Case;
+                        app.rule_input_step = RuleInputStep::SelectCase;
+                        app.rule_input_buffer.clear();
+                    }
+                }
+                event::KeyCode::Char('5') => {
+                    if app.dialog_cursor != 4 {
+                        app.dialog_cursor = 4;
+                    } else {
+                        app.dialog_mode = RuleDialogMode::RemovePattern;
+                        app.rule_input_step = RuleInputStep::InputText;
+                        app.rule_input_buffer.clear();
+                    }
+                }
+                event::KeyCode::Char('6') => {
+                    if app.dialog_cursor != 5 {
+                        app.dialog_cursor = 5;
+                    } else {
+                        app.dialog_mode = RuleDialogMode::Numbering;
+                        app.rule_input_step = RuleInputStep::InputNumber;
+                        app.rule_input_buffer.clear();
+                    }
+                }
+                event::KeyCode::Esc => {
+                    app.clear_input();
+                }
+                event::KeyCode::Char('q') => {
+                    app.clear_input();
+                }
+                _ => {}
+            }
+        }
+        _ => {
+            if key.code == event::KeyCode::Char('q') {
+                app.clear_input();
+            } else {
+                handle_rule_input_key(app, key);
+            }
+        }
     }
 }
 
@@ -450,17 +651,17 @@ fn handle_rule_input_key(app: &mut App, key: KeyEvent) {
 fn submit_rule_input(app: &mut App) {
     let buf = app.rule_input_buffer.clone();
 
-    match (app.rule_input_mode, app.rule_input_step) {
-        (RuleInputMode::FindReplace, RuleInputStep::InputText) => {
+    match (app.dialog_mode, app.rule_input_step) {
+        (RuleDialogMode::FindReplace, RuleInputStep::InputText) => {
             app.find_replace_find = Some(buf);
             app.rule_input_step = RuleInputStep::InputReplace;
             app.rule_input_buffer.clear();
         }
-        (RuleInputMode::FindReplace, RuleInputStep::InputReplace) => {
+        (RuleDialogMode::FindReplace, RuleInputStep::InputReplace) => {
             app.rule_input_step = RuleInputStep::ConfirmRegex;
             app.rule_input_buffer.clear();
         }
-        (RuleInputMode::FindReplace, RuleInputStep::ConfirmRegex) => {
+        (RuleDialogMode::FindReplace, RuleInputStep::ConfirmRegex) => {
             if let Some(find) = app.find_replace_find.take() {
                 let is_regex = buf
                     .chars()
@@ -475,29 +676,29 @@ fn submit_rule_input(app: &mut App) {
                 app.clear_input();
             }
         }
-        (RuleInputMode::Prefix, RuleInputStep::InputText) => {
+        (RuleDialogMode::Prefix, RuleInputStep::InputText) => {
             app.add_rule(RenameRule::AddPrefix(buf));
             app.clear_input();
         }
-        (RuleInputMode::Suffix, RuleInputStep::InputText) => {
+        (RuleDialogMode::Suffix, RuleInputStep::InputText) => {
             app.add_rule(RenameRule::AddSuffix(buf));
             app.clear_input();
         }
-        (RuleInputMode::RemovePattern, RuleInputStep::InputText) => {
+        (RuleDialogMode::RemovePattern, RuleInputStep::InputText) => {
             app.add_rule(RenameRule::RemovePattern(buf));
             app.clear_input();
         }
-        (RuleInputMode::Numbering, RuleInputStep::InputNumber) => {
+        (RuleDialogMode::Numbering, RuleInputStep::InputNumber) => {
             app.numbering_start = buf.parse().ok();
             app.rule_input_step = RuleInputStep::InputWidth;
             app.rule_input_buffer.clear();
         }
-        (RuleInputMode::Numbering, RuleInputStep::InputWidth) => {
+        (RuleDialogMode::Numbering, RuleInputStep::InputWidth) => {
             app.numbering_width = buf.parse().ok();
             app.rule_input_step = RuleInputStep::InputPlaceholder;
             app.rule_input_buffer.clear();
         }
-        (RuleInputMode::Numbering, RuleInputStep::InputPlaceholder) => {
+        (RuleDialogMode::Numbering, RuleInputStep::InputPlaceholder) => {
             if let (Some(start), Some(width)) = (app.numbering_start, app.numbering_width) {
                 app.add_rule(RenameRule::Numbering {
                     start,

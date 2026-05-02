@@ -13,7 +13,8 @@ pub struct App {
     pub active_panel: Panel,
     pub status_msg: String,
     pub error_msg: Option<String>,
-    pub rule_input_mode: RuleInputMode,
+    pub dialog_mode: RuleDialogMode,
+    pub dialog_cursor: usize,
     pub rule_input_buffer: String,
     pub rule_input_step: RuleInputStep,
     pub find_replace_find: Option<String>,
@@ -28,8 +29,9 @@ pub enum Panel {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RuleInputMode {
+pub enum RuleDialogMode {
     None,
+    SelectRule,
     FindReplace,
     Prefix,
     Suffix,
@@ -67,9 +69,10 @@ impl App {
             rules: Vec::new(),
             rule_cursor: 0,
             active_panel: Panel::Files,
-            status_msg: String::from("erm - EncryptedData's Re Namer | arrows:navigate  tab:panel  f/p/s/c/r/n:add rule  d:del  r:dry-run  R:rename  q:quit"),
+            status_msg: String::from("ern - EncryptedData's ReNamer | arrows:navigate  tab:panel  enter:Add Rule  d:del  r:dry-run  R:rename  q:quit"),
             error_msg: None,
-            rule_input_mode: RuleInputMode::None,
+            dialog_mode: RuleDialogMode::None,
+            dialog_cursor: 0,
             rule_input_buffer: String::new(),
             rule_input_step: RuleInputStep::Waiting,
             find_replace_find: None,
@@ -131,7 +134,7 @@ impl App {
     }
 
     pub fn clear_input(&mut self) {
-        self.rule_input_mode = RuleInputMode::None;
+        self.dialog_mode = RuleDialogMode::None;
         self.rule_input_step = RuleInputStep::Waiting;
         self.rule_input_buffer.clear();
         self.find_replace_find = None;
