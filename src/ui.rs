@@ -182,24 +182,26 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     let start = app.file_scroll;
     let end = (start + visible_height).min(total_files);
 
-    let mut rows = Vec::new();
+    let mut rows: Vec<Row<'_>> = Vec::new();
 
     for i in start..end {
         let file = &app.files[i];
         let new_name = apply_rules(file, &app.rules, i as u32);
-        let preview = if new_name != *file {
-            format!("{} -> {}", file, new_name)
-        } else {
-            format!("{}", file)
-        };
 
-        let style = if i == app.file_cursor {
+        let file_style = if i == app.file_cursor {
             Style::default().add_modifier(Modifier::REVERSED)
         } else {
             Style::default()
         };
 
-        rows.push(Row::new(vec![preview]).style(style));
+        let output_style = if i == app.file_cursor {
+            Style::default().add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default()
+        };
+
+        rows.push(Row::new(vec![format!("File: {}", file)]).style(file_style));
+        rows.push(Row::new(vec![format!("Output: {}", new_name)]).style(output_style));
     }
 
     let table = Table::new(rows, [Constraint::Min(0)]).block(block);
