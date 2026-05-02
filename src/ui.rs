@@ -36,6 +36,8 @@ fn main_loop(
     terminal: &mut Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
 ) -> color_eyre::Result<()> {
     while app.running {
+        let visible_height = terminal.size().ok().map(|s| s.height).unwrap_or(24).saturating_sub(3);
+
         terminal.draw(|frame| render(frame, app))?;
 
         if event::poll(std::time::Duration::from_millis(100))? {
@@ -43,7 +45,7 @@ fn main_loop(
                 if key.kind != KeyEventKind::Press {
                     continue;
                 }
-                handle_key(app, key);
+                handle_key(app, key, visible_height);
             }
         }
     }
@@ -174,9 +176,16 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         )))
         .border_style(border_style);
 
+    let visible_height = (area.height as usize).saturating_sub(2);
+    let total_files = app.files.len();
+
+    let start = app.file_scroll;
+    let end = (start + visible_height).min(total_files);
+
     let mut rows = Vec::new();
 
-    for (i, file) in app.files.iter().enumerate() {
+    for i in start..end {
+        let file = &app.files[i];
         let new_name = apply_rules(file, &app.rules, i as u32);
         let preview = if new_name != *file {
             format!("{} -> {}", file, new_name)
@@ -217,7 +226,7 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     frame.render_widget(status, area);
 }
 
-fn handle_key(app: &mut App, key: KeyEvent) {
+fn handle_key(app: &mut App, key: KeyEvent, visible_height: u16) {
     if app.rule_input_mode != RuleInputMode::None {
         handle_rule_input_key(app, key);
         return;
@@ -239,7 +248,7 @@ fn handle_key(app: &mut App, key: KeyEvent) {
             if app.active_panel == Panel::Rules {
                 handle_rules_key(app, key);
             } else {
-                handle_files_key(app, key);
+                handle_files_key(app, key, visible_height);
             }
         }
     }
@@ -299,24 +308,47 @@ fn handle_rules_key(app: &mut App, key: KeyEvent) {
     }
 }
 
-fn handle_files_key(app: &mut App, key: KeyEvent) {
+fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
     match key.code {
         event::KeyCode::Char('j') | event::KeyCode::Down => {
             if !app.files.is_empty() && app.file_cursor < app.files.len().saturating_sub(1) {
                 app.file_cursor += 1;
+            }
+            let vh = visible_height as usize;
+            if app.file_cursor >= app.file_scroll + vh {
+                app.file_scroll = app.file_cursor - vh + 1;
             }
         }
         event::KeyCode::Char('k') | event::KeyCode::Up => {
             if app.file_cursor > 0 {
                 app.file_cursor -= 1;
             }
+            if app.file_cursor < app.file_scroll {
+                app.file_scroll = app.file_cursor;
+            }
         }
         event::KeyCode::Char('g') => {
-
+            app.file_cursor = 0;
+            app.file_scroll = 0;
         }
         event::KeyCode::Char('G') => {
             if !app.files.is_empty() {
                 app.file_cursor = app.files.len() - 1;
+                app.file_scroll = app.file_cursor;
+            }
+        }
+        event::KeyCode::Char('d') => {
+            let vh = visible_height as usize;
+            if app.file_cursor + vh < app.files.len() {
+                app.file_scroll = (app.file_scroll + vh / 2).min(app.files.len().saturating_sub(1));
+                app.file_cursor = app.file_scroll;
+            }
+        }
+        event::KeyCode::Char('u') => {
+            let vh = visible_height as usize;
+            if app.file_scroll > 0 {
+                app.file_scroll = app.file_scroll.saturating_sub(vh / 2);
+                app.file_cursor = app.file_scroll;
             }
         }
 

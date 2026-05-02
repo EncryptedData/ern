@@ -7,6 +7,7 @@ pub struct App {
     pub current_dir: PathBuf,
     pub files: Vec<String>,
     pub file_cursor: usize,
+    pub file_scroll: usize,
     pub rules: Vec<RenameRule>,
     pub rule_cursor: usize,
     pub active_panel: Panel,
@@ -59,6 +60,7 @@ impl App {
             current_dir,
             files,
             file_cursor: 0,
+            file_scroll: 0,
             rules: Vec::new(),
             rule_cursor: 0,
             active_panel: Panel::Files,
@@ -77,6 +79,9 @@ impl App {
         self.files = load_files(&self.current_dir);
         if self.file_cursor >= self.files.len() {
             self.file_cursor = self.files.len().saturating_sub(1);
+        }
+        if self.file_scroll >= self.files.len() {
+            self.file_scroll = self.files.len().saturating_sub(1);
         }
     }
 
