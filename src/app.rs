@@ -64,7 +64,7 @@ impl App {
             rules: Vec::new(),
             rule_cursor: 0,
             active_panel: Panel::Files,
-            status_msg: String::from("erm - EncryptedData's Re Namer | j/k:navigate  h/l:panel  f/p/s/c/r/n:add rule  d:del  J/K:move  r:dry-run  R:rename  q:quit"),
+            status_msg: String::from("erm - EncryptedData's Re Namer | arrows:navigate  tab:panel  f/p/s/c/r/n:add rule  d:del  r:dry-run  R:rename  q:quit"),
             error_msg: None,
             rule_input_mode: RuleInputMode::None,
             rule_input_buffer: String::new(),
@@ -124,20 +124,6 @@ impl App {
         if self.rule_cursor < self.rules.len() {
             self.rules.remove(self.rule_cursor);
             self.status_msg = String::from("Rule removed.");
-        }
-    }
-
-    pub fn move_rule_up(&mut self) {
-        if self.rule_cursor > 0 {
-            self.rules.swap(self.rule_cursor, self.rule_cursor - 1);
-            self.rule_cursor -= 1;
-        }
-    }
-
-    pub fn move_rule_down(&mut self) {
-        if self.rule_cursor < self.rules.len() - 1 {
-            self.rules.swap(self.rule_cursor, self.rule_cursor + 1);
-            self.rule_cursor += 1;
         }
     }
 

@@ -112,7 +112,7 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
             Line::from(Span::styled("  r  remove pattern", Style::default().fg(Color::DarkGray))),
             Line::from(Span::styled("  n  numbering", Style::default().fg(Color::DarkGray))),
             Line::from(""),
-            Line::from(Span::styled("  d  delete rule  J/K  move rule", Style::default().fg(Color::DarkGray))),
+            Line::from(Span::styled("  d  delete rule", Style::default().fg(Color::DarkGray))),
         ]);
         frame.render_widget(hint, area);
     }
@@ -236,7 +236,7 @@ fn handle_key(app: &mut App, key: KeyEvent, visible_height: u16) {
         event::KeyCode::Char('q') => {
             app.running = false;
         }
-        event::KeyCode::Char('h') | event::KeyCode::Char('l') | event::KeyCode::Tab => {
+        event::KeyCode::Tab => {
             app.active_panel = if app.active_panel == Panel::Rules {
                 Panel::Files
             } else {
@@ -261,24 +261,18 @@ fn handle_rules_key(app: &mut App, key: KeyEvent) {
     }
 
     match key.code {
-        event::KeyCode::Char('j') | event::KeyCode::Down => {
+        event::KeyCode::Down => {
             if app.rule_cursor < app.rules.len().saturating_sub(1) {
                 app.rule_cursor += 1;
             }
         }
-        event::KeyCode::Char('k') | event::KeyCode::Up => {
+        event::KeyCode::Up => {
             if app.rule_cursor > 0 {
                 app.rule_cursor -= 1;
             }
         }
         event::KeyCode::Char('d') => {
             app.remove_rule();
-        }
-        event::KeyCode::Char('J') => {
-            app.move_rule_down();
-        }
-        event::KeyCode::Char('K') => {
-            app.move_rule_up();
         }
         event::KeyCode::Char('f') => {
             app.rule_input_mode = RuleInputMode::FindReplace;
@@ -310,7 +304,7 @@ fn handle_rules_key(app: &mut App, key: KeyEvent) {
 
 fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
     match key.code {
-        event::KeyCode::Char('j') | event::KeyCode::Down => {
+        event::KeyCode::Down => {
             if !app.files.is_empty() && app.file_cursor < app.files.len().saturating_sub(1) {
                 app.file_cursor += 1;
             }
@@ -319,7 +313,7 @@ fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
                 app.file_scroll = app.file_cursor - vh + 1;
             }
         }
-        event::KeyCode::Char('k') | event::KeyCode::Up => {
+        event::KeyCode::Up => {
             if app.file_cursor > 0 {
                 app.file_cursor -= 1;
             }
