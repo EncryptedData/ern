@@ -145,8 +145,8 @@ fn render_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
 fn render_rule_select_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     let items = [
-        "Find/Replace (Regex)",
         "Find/Replace",
+        "Find/Replace (Regex)",
         "Add Prefix",
         "Add Suffix",
         "Change Case",
@@ -497,13 +497,13 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
             event::KeyCode::Enter => {
                 let rule = match app.dialog_cursor {
                     0 => {
-                        app.dialog_mode = RuleDialogMode::FindReplaceRegex;
+                        app.dialog_mode = RuleDialogMode::FindReplace;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
                         None
                     }
                     1 => {
-                        app.dialog_mode = RuleDialogMode::FindReplace;
+                        app.dialog_mode = RuleDialogMode::FindReplaceRegex;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
                         None
