@@ -96,23 +96,36 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         .border_style(border_style);
 
     let total_items = app.rules.len() + 1;
+        let is_active = app.active_panel == Panel::Rules;
 
     let mut rows: Vec<Row> = app
         .rules
         .iter()
         .enumerate()
         .map(|(i, rule)| {
-            let prefix = if i == app.rule_cursor { ">> " } else { "   " };
-            Row::new(vec![format!("{}[{}] {}", prefix, i, rule)])
+            let row_style = if i == app.rule_cursor {
+                if is_active {
+                    Style::default().add_modifier(Modifier::REVERSED)
+                } else {
+                    Style::default().fg(Color::Gray).bg(Color::DarkGray)
+                }
+            } else {
+                Style::default()
+            };
+            Row::new(vec![format!("[{}] {}", i, rule)]).style(row_style)
         })
         .collect();
 
-    let add_rule_prefix = if total_items - 1 == app.rule_cursor {
-        ">> "
+    let row_style = if total_items - 1 == app.rule_cursor {
+        if is_active {
+            Style::default().add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default().fg(Color::Gray).bg(Color::DarkGray)
+        }
     } else {
-        "   "
+        Style::default()
     };
-    rows.push(Row::new(vec![format!("{}Add Rule", add_rule_prefix)]));
+    rows.push(Row::new(vec!["Add Rule"]).style(row_style));
 
     let table = Table::new(rows, [Constraint::Min(0)]).block(block);
     frame.render_widget(table, area);
@@ -322,13 +335,21 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         let new_name = apply_rules(file, &app.rules, i as u32);
 
         let file_style = if i == app.file_cursor {
-            Style::default().add_modifier(Modifier::REVERSED)
+            if is_active {
+                Style::default().add_modifier(Modifier::REVERSED)
+            } else {
+                Style::default().fg(Color::Gray).bg(Color::DarkGray)
+            }
         } else {
             Style::default()
         };
 
         let output_style = if i == app.file_cursor {
-            Style::default().add_modifier(Modifier::REVERSED)
+            if is_active {
+                Style::default().add_modifier(Modifier::REVERSED)
+            } else {
+                Style::default().fg(Color::Gray).bg(Color::DarkGray)
+            }
         } else {
             Style::default()
         };
