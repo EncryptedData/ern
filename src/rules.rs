@@ -5,7 +5,10 @@ pub enum RenameRule {
     FindReplace {
         find: String,
         replace: String,
-        regex: bool,
+    },
+    FindReplaceRegex {
+        pattern: String,
+        replacement: String,
     },
     AddPrefix(String),
     AddSuffix(String),
@@ -40,13 +43,14 @@ impl fmt::Display for CaseTransform {
 impl fmt::Display for RenameRule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            RenameRule::FindReplace {
-                find,
-                replace,
-                regex,
+            RenameRule::FindReplace { find, replace } => {
+                write!(f, "find '{}' → '{}'", find, replace)
+            }
+            RenameRule::FindReplaceRegex {
+                pattern,
+                replacement,
             } => {
-                let flag = if *regex { "[rx]" } else { "" };
-                write!(f, "{}find '{}' → '{}'", flag, find, replace)
+                write!(f, "[rx]find '{}' → '{}'", pattern, replacement)
             }
             RenameRule::AddPrefix(s) => write!(f, "prefix '{}'", s),
             RenameRule::AddSuffix(s) => write!(f, "suffix '{}'", s),
@@ -69,17 +73,15 @@ impl RenameRule {
         let mut new_name = name.to_string();
 
         match self {
-            RenameRule::FindReplace {
-                find,
-                replace,
-                regex,
+            RenameRule::FindReplace { find, replace } => {
+                new_name = new_name.replace(find, replace);
+            }
+            RenameRule::FindReplaceRegex {
+                pattern,
+                replacement,
             } => {
-                if *regex {
-                    if let Some(re) = regex::Regex::new(find).ok() {
-                        new_name = re.replace_all(&new_name, replace.as_str()).to_string();
-                    }
-                } else {
-                    new_name = new_name.replace(find, replace);
+                if let Some(re) = regex::Regex::new(pattern).ok() {
+                    new_name = re.replace_all(&new_name, replacement.as_str()).to_string();
                 }
             }
             RenameRule::AddPrefix(s) => {
@@ -120,17 +122,15 @@ impl RenameRule {
         let mut new_name = stem.to_string();
 
         match self {
-            RenameRule::FindReplace {
-                find,
-                replace,
-                regex,
+            RenameRule::FindReplace { find, replace } => {
+                new_name = new_name.replace(find, replace);
+            }
+            RenameRule::FindReplaceRegex {
+                pattern,
+                replacement,
             } => {
-                if *regex {
-                    if let Some(re) = regex::Regex::new(find).ok() {
-                        new_name = re.replace_all(&new_name, replace.as_str()).to_string();
-                    }
-                } else {
-                    new_name = new_name.replace(find, replace);
+                if let Some(re) = regex::Regex::new(pattern).ok() {
+                    new_name = re.replace_all(&new_name, replacement.as_str()).to_string();
                 }
             }
             RenameRule::AddPrefix(s) => {

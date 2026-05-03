@@ -17,7 +17,7 @@ pub struct App {
     pub dialog_cursor: usize,
     pub rule_input_buffer: String,
     pub rule_input_step: RuleInputStep,
-    pub find_replace_find: Option<String>,
+    pub find_pattern: Option<String>,
     pub numbering_start: Option<u32>,
     pub numbering_width: Option<usize>,
 }
@@ -33,6 +33,7 @@ pub enum RuleDialogMode {
     None,
     SelectRule,
     FindReplace,
+    FindReplaceRegex,
     Prefix,
     Suffix,
     RemovePattern,
@@ -45,7 +46,6 @@ pub enum RuleInputStep {
     Waiting,
     InputText,
     InputReplace,
-    ConfirmRegex,
     InputNumber,
     InputWidth,
     InputPlaceholder,
@@ -75,7 +75,7 @@ impl App {
             dialog_cursor: 0,
             rule_input_buffer: String::new(),
             rule_input_step: RuleInputStep::Waiting,
-            find_replace_find: None,
+            find_pattern: None,
             numbering_start: None,
             numbering_width: None,
         }
@@ -137,7 +137,7 @@ impl App {
         self.dialog_mode = RuleDialogMode::None;
         self.rule_input_step = RuleInputStep::Waiting;
         self.rule_input_buffer.clear();
-        self.find_replace_find = None;
+        self.find_pattern = None;
         self.numbering_start = None;
         self.numbering_width = None;
     }

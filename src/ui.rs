@@ -66,7 +66,7 @@ fn render(frame: &mut ratatui::Frame<'_>, app: &App) {
 
     let panel_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)].as_ref())
+        .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)].as_ref())
         .split(chunks[0]);
 
     render_rules_panel(frame, panel_chunks[0], app);
@@ -145,6 +145,7 @@ fn render_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
 fn render_rule_select_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     let items = [
+        "Find/Replace (Regex)",
         "Find/Replace",
         "Add Prefix",
         "Add Suffix",
@@ -229,6 +230,7 @@ fn render_rule_input_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &Ap
 
     let title = match app.dialog_mode {
         RuleDialogMode::FindReplace => " Find/Replace Rule ",
+        RuleDialogMode::FindReplaceRegex => " Find/Replace (Regex) Rule ",
         RuleDialogMode::Prefix => " Add Prefix Rule ",
         RuleDialogMode::Suffix => " Add Suffix Rule ",
         RuleDialogMode::Case => " Change Case Rule ",
@@ -238,9 +240,10 @@ fn render_rule_input_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &Ap
     };
 
     let prompt = match (app.dialog_mode, app.rule_input_step) {
-        (RuleDialogMode::FindReplace, RuleInputStep::InputText) => "Find pattern:",
+        (RuleDialogMode::FindReplace, RuleInputStep::InputText) => "Find string:",
         (RuleDialogMode::FindReplace, RuleInputStep::InputReplace) => "Replace with:",
-        (RuleDialogMode::FindReplace, RuleInputStep::ConfirmRegex) => "Use regex? (y/n):",
+        (RuleDialogMode::FindReplaceRegex, RuleInputStep::InputText) => "Regex pattern:",
+        (RuleDialogMode::FindReplaceRegex, RuleInputStep::InputReplace) => "Replace with:",
         (RuleDialogMode::Prefix, RuleInputStep::InputText) => "Prefix string:",
         (RuleDialogMode::Suffix, RuleInputStep::InputText) => "Suffix string:",
         (RuleDialogMode::RemovePattern, RuleInputStep::InputText) => "Pattern to remove:",
@@ -367,10 +370,14 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         match app.dialog_mode {
             RuleDialogMode::SelectRule => "  << Add Rule >>  enter:select  1-6:select  esc:cancel",
             RuleDialogMode::FindReplace => match app.rule_input_step {
-                RuleInputStep::InputText => "  Find pattern: enter:next  esc:cancel",
-                RuleInputStep::InputReplace => "  Replace with: enter:next  esc:cancel",
-                RuleInputStep::ConfirmRegex => "  Use regex (y/n): enter:confirm  esc:cancel",
+                RuleInputStep::InputText => "  Find string: enter:next  esc:cancel",
+                RuleInputStep::InputReplace => "  Replace with: enter:confirm  esc:cancel",
                 _ => "  << Find/Replace >>  enter:confirm  esc:cancel",
+            },
+            RuleDialogMode::FindReplaceRegex => match app.rule_input_step {
+                RuleInputStep::InputText => "  Regex pattern: enter:next  esc:cancel",
+                RuleInputStep::InputReplace => "  Replace with: enter:confirm  esc:cancel",
+                _ => "  << Find/Replace (Regex) >>  enter:confirm  esc:cancel",
             },
             RuleDialogMode::Prefix => "  << Add Prefix >>  enter:confirm  esc:cancel",
             RuleDialogMode::Suffix => "  << Add Suffix >>  enter:confirm  esc:cancel",
@@ -478,7 +485,7 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
     match app.dialog_mode {
         RuleDialogMode::SelectRule => match key.code {
             event::KeyCode::Down => {
-                if app.dialog_cursor < 5 {
+                if app.dialog_cursor < 6 {
                     app.dialog_cursor += 1;
                 }
             }
@@ -490,19 +497,19 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
             event::KeyCode::Enter => {
                 let rule = match app.dialog_cursor {
                     0 => {
-                        app.dialog_mode = RuleDialogMode::FindReplace;
+                        app.dialog_mode = RuleDialogMode::FindReplaceRegex;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
                         None
                     }
                     1 => {
-                        app.dialog_mode = RuleDialogMode::Prefix;
+                        app.dialog_mode = RuleDialogMode::FindReplace;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
                         None
                     }
                     2 => {
-                        app.dialog_mode = RuleDialogMode::Suffix;
+                        app.dialog_mode = RuleDialogMode::Prefix;
                         app.rule_input_step = RuleInputStep::InputText;
                         app.rule_input_buffer.clear();
                         None
@@ -536,7 +543,7 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
                 if app.dialog_cursor != 0 {
                     app.dialog_cursor = 0;
                 } else {
-                    app.dialog_mode = RuleDialogMode::FindReplace;
+                    app.dialog_mode = RuleDialogMode::FindReplaceRegex;
                     app.rule_input_step = RuleInputStep::InputText;
                     app.rule_input_buffer.clear();
                 }
@@ -545,7 +552,7 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
                 if app.dialog_cursor != 1 {
                     app.dialog_cursor = 1;
                 } else {
-                    app.dialog_mode = RuleDialogMode::Prefix;
+                    app.dialog_mode = RuleDialogMode::FindReplace;
                     app.rule_input_step = RuleInputStep::InputText;
                     app.rule_input_buffer.clear();
                 }
@@ -554,7 +561,7 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
                 if app.dialog_cursor != 2 {
                     app.dialog_cursor = 2;
                 } else {
-                    app.dialog_mode = RuleDialogMode::Suffix;
+                    app.dialog_mode = RuleDialogMode::Prefix;
                     app.rule_input_step = RuleInputStep::InputText;
                     app.rule_input_buffer.clear();
                 }
@@ -563,8 +570,8 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
                 if app.dialog_cursor != 3 {
                     app.dialog_cursor = 3;
                 } else {
-                    app.dialog_mode = RuleDialogMode::Case;
-                    app.rule_input_step = RuleInputStep::SelectCase;
+                    app.dialog_mode = RuleDialogMode::Suffix;
+                    app.rule_input_step = RuleInputStep::InputText;
                     app.rule_input_buffer.clear();
                 }
             }
@@ -572,14 +579,23 @@ fn handle_dialog_key(app: &mut App, key: KeyEvent) {
                 if app.dialog_cursor != 4 {
                     app.dialog_cursor = 4;
                 } else {
-                    app.dialog_mode = RuleDialogMode::RemovePattern;
-                    app.rule_input_step = RuleInputStep::InputText;
+                    app.dialog_mode = RuleDialogMode::Case;
+                    app.rule_input_step = RuleInputStep::SelectCase;
                     app.rule_input_buffer.clear();
                 }
             }
             event::KeyCode::Char('6') => {
                 if app.dialog_cursor != 5 {
                     app.dialog_cursor = 5;
+                } else {
+                    app.dialog_mode = RuleDialogMode::RemovePattern;
+                    app.rule_input_step = RuleInputStep::InputText;
+                    app.rule_input_buffer.clear();
+                }
+            }
+            event::KeyCode::Char('7') => {
+                if app.dialog_cursor != 6 {
+                    app.dialog_cursor = 6;
                 } else {
                     app.dialog_mode = RuleDialogMode::Numbering;
                     app.rule_input_step = RuleInputStep::InputNumber;
@@ -709,27 +725,27 @@ fn submit_rule_input(app: &mut App) {
     let buf = app.rule_input_buffer.clone();
 
     match (app.dialog_mode, app.rule_input_step) {
-        (RuleDialogMode::FindReplace, RuleInputStep::InputText) => {
-            app.find_replace_find = Some(buf);
+        (RuleDialogMode::FindReplace, RuleInputStep::InputText)
+        | (RuleDialogMode::FindReplaceRegex, RuleInputStep::InputText) => {
+            app.find_pattern = Some(buf);
             app.rule_input_step = RuleInputStep::InputReplace;
             app.rule_input_buffer.clear();
         }
-        (RuleDialogMode::FindReplace, RuleInputStep::InputReplace) => {
-            app.rule_input_step = RuleInputStep::ConfirmRegex;
-            app.rule_input_buffer.clear();
-        }
-        (RuleDialogMode::FindReplace, RuleInputStep::ConfirmRegex) => {
-            if let Some(find) = app.find_replace_find.take() {
-                let is_regex = buf
-                    .chars()
-                    .next()
-                    .map(|c| c == 'y' || c == 'Y')
-                    .unwrap_or(false);
-                app.add_rule(RenameRule::FindReplace {
-                    find,
-                    replace: buf,
-                    regex: is_regex,
-                });
+        (RuleDialogMode::FindReplace, RuleInputStep::InputReplace)
+        | (RuleDialogMode::FindReplaceRegex, RuleInputStep::InputReplace) => {
+            let is_regex = app.dialog_mode == RuleDialogMode::FindReplaceRegex;
+            if let Some(find) = app.find_pattern.take() {
+                if is_regex {
+                    app.add_rule(RenameRule::FindReplaceRegex {
+                        pattern: find,
+                        replacement: buf,
+                    });
+                } else {
+                    app.add_rule(RenameRule::FindReplace {
+                        find,
+                        replace: buf,
+                    });
+                }
                 app.clear_input();
             }
         }
