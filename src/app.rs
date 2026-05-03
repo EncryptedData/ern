@@ -69,7 +69,7 @@ impl App {
             rules: Vec::new(),
             rule_cursor: 0,
             active_panel: Panel::Files,
-            status_msg: String::from("ern - EncryptedData's ReNamer | arrows:navigate  tab:panel  enter:Add Rule  d:del  r:dry-run  R:rename  q:quit"),
+            status_msg: String::from("ern - EncryptedData's ReNamer | arrows:navigate  tab:panel  enter:Add Rule  d:del  ctrl+w:rename  q:quit"),
             error_msg: None,
             dialog_mode: RuleDialogMode::None,
             dialog_cursor: 0,
@@ -91,7 +91,7 @@ impl App {
         }
     }
 
-    pub fn rename_files(&mut self, dry_run: bool) -> Vec<(String, String)> {
+    pub fn rename_files(&mut self) -> Vec<(String, String)> {
         let mut results = Vec::new();
         let mut file_index: u32 = 0;
 
@@ -100,22 +100,18 @@ impl App {
             let new_name = crate::rules::apply_rules(old_name, &self.rules, file_index);
             results.push((old_name.clone(), new_name.clone()));
 
-            if !dry_run {
-                let old_path = self.current_dir.join(old_name);
-                let new_path = self.current_dir.join(&new_name);
-                match std::fs::rename(&old_path, &new_path) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        self.error_msg = Some(format!("Failed to rename '{}': {}", old_name, e));
-                    }
+            let old_path = self.current_dir.join(old_name);
+            let new_path = self.current_dir.join(&new_name);
+            match std::fs::rename(&old_path, &new_path) {
+                Ok(()) => {}
+                Err(e) => {
+                    self.error_msg = Some(format!("Failed to rename '{}': {}", old_name, e));
                 }
-                file_index += 1;
             }
+            file_index += 1;
         }
 
-        if !dry_run {
-            self.refresh_files();
-        }
+        self.refresh_files();
 
         results
     }

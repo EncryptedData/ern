@@ -396,7 +396,7 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
             RuleDialogMode::None => unreachable!(),
         }
     } else {
-        &" arrows:navigate  tab:panel  enter:Add Rule  d:del  r:dry-run  R:rename  q:quit"
+        &" arrows:navigate  tab:panel  enter:Add Rule  d:del  ctrl+w:rename  q:quit"
     };
 
     let msg = if let Some(ref err) = app.error_msg {
@@ -664,14 +664,10 @@ fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
             }
         }
 
-        event::KeyCode::Char('r') => {
-            let results = app.rename_files(true);
-            app.status_msg = format!("Dry-run: {} files would be renamed.", results.len());
-        }
-        event::KeyCode::Char('R') => {
-            let results = app.rename_files(false);
-            app.refresh_files();
+        event::KeyCode::Char(c) if key.modifiers.contains(event::KeyModifiers::CONTROL) && c == 'w' => {
+            let results = app.rename_files();
             app.status_msg = format!("Renamed {} files.", results.len());
+            app.running = false;
         }
         event::KeyCode::Char('/') => {
             app.refresh_files();
