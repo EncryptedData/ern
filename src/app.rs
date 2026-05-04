@@ -39,6 +39,7 @@ pub enum RuleDialogMode {
     RemovePattern,
     Numbering,
     Case,
+    ConfirmQuit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

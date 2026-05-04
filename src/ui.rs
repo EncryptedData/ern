@@ -96,7 +96,7 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
         .border_style(border_style);
 
     let total_items = app.rules.len() + 1;
-        let is_active = app.active_panel == Panel::Rules;
+    let is_active = app.active_panel == Panel::Rules;
 
     let mut rows: Vec<Row> = app
         .rules
@@ -136,10 +136,10 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 }
 
 fn render_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
-    if app.dialog_mode == RuleDialogMode::SelectRule {
-        render_rule_select_dialog(frame, area, app);
-    } else {
-        render_rule_input_dialog(frame, area, app);
+    match app.dialog_mode {
+        RuleDialogMode::SelectRule => render_rule_select_dialog(frame, area, app),
+        RuleDialogMode::ConfirmQuit => render_confirm_quit_dialog(frame, area, app),
+        _ => render_rule_input_dialog(frame, area, app),
     }
 }
 
@@ -209,6 +209,70 @@ fn render_rule_select_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &A
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         "  enter:select  esc:cancel",
+        Style::default().fg(Color::Gray),
+    )));
+
+    let content = Paragraph::new(lines).block(block);
+    frame.render_widget(content, dialog_area);
+}
+
+fn render_confirm_quit_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
+    let items = ["Yes", "No"];
+    let item_count: u16 = items.len() as u16;
+    let padding: u16 = 5;
+    let dialog_height = item_count + padding;
+    let dialog_width: u16 = 30;
+    let x = area.x + area.width.saturating_sub(dialog_width) / 2;
+    let y = area.y + area.height.saturating_sub(dialog_height) / 2;
+    let dialog_area = Rect {
+        x,
+        y,
+        width: dialog_width.min(area.width),
+        height: dialog_height.min(area.height),
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Red))
+        .title(Line::from(Span::styled(
+            " Quit? ",
+            Style::default()
+                .fg(Color::Red)
+                .add_modifier(Modifier::REVERSED),
+        )));
+
+    let mut lines: Vec<Line> = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            " Are you sure?",
+            Style::default().fg(Color::White),
+        )),
+        Line::from(""),
+    ];
+
+    for (i, item) in items.iter().enumerate() {
+        let key = (b'y' + i as u8) as char;
+        let style = if i == app.dialog_cursor {
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        lines.push(Line::from(Span::styled(
+            format!(
+                "  {}  {}  {}",
+                key,
+                item,
+                if i == app.dialog_cursor { ">>" } else { "  " }
+            ),
+            style,
+        )));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "  enter:confirm  esc:no  arrows:navigate",
         Style::default().fg(Color::Gray),
     )));
 
@@ -368,6 +432,7 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
     let help_text = if app.dialog_mode != RuleDialogMode::None {
         match app.dialog_mode {
+            RuleDialogMode::ConfirmQuit => "  << Quit Confirmation >>  enter:confirm  esc:no",
             RuleDialogMode::SelectRule => "  << Add Rule >>  enter:select  1-6:select  esc:cancel",
             RuleDialogMode::FindReplace => match app.rule_input_step {
                 RuleInputStep::InputText => "  Find string: enter:next  esc:cancel",
@@ -430,7 +495,14 @@ fn handle_key(app: &mut App, key: KeyEvent, visible_height: u16) {
 
     match key.code {
         event::KeyCode::Char('q') => {
-            app.running = false;
+            if app.rules.is_empty() {
+                app.running = false;
+            } else {
+                app.dialog_mode = RuleDialogMode::ConfirmQuit;
+                app.dialog_cursor = 0;
+                app.rule_input_buffer.clear();
+                app.rule_input_step = RuleInputStep::Waiting;
+            }
         }
         event::KeyCode::Tab => {
             app.active_panel = if app.active_panel == Panel::Rules {
@@ -483,6 +555,30 @@ fn handle_rules_key(app: &mut App, key: KeyEvent) {
 
 fn handle_dialog_key(app: &mut App, key: KeyEvent) {
     match app.dialog_mode {
+        RuleDialogMode::ConfirmQuit => match key.code {
+            event::KeyCode::Down | event::KeyCode::Char('n') => {
+                if app.dialog_cursor < 1 {
+                    app.dialog_cursor = 1;
+                }
+            }
+            event::KeyCode::Up | event::KeyCode::Char('y') => {
+                if app.dialog_cursor > 0 {
+                    app.dialog_cursor = 0;
+                }
+            }
+            event::KeyCode::Enter => {
+                if app.dialog_cursor == 0 {
+                    app.running = false;
+                    app.dialog_mode = RuleDialogMode::None;
+                } else {
+                    app.clear_input();
+                }
+            }
+            event::KeyCode::Esc => {
+                app.clear_input();
+            }
+            _ => {}
+        },
         RuleDialogMode::SelectRule => match key.code {
             event::KeyCode::Down => {
                 if app.dialog_cursor < 6 {
@@ -664,7 +760,9 @@ fn handle_files_key(app: &mut App, key: KeyEvent, visible_height: u16) {
             }
         }
 
-        event::KeyCode::Char(c) if key.modifiers.contains(event::KeyModifiers::CONTROL) && c == 'w' => {
+        event::KeyCode::Char(c)
+            if key.modifiers.contains(event::KeyModifiers::CONTROL) && c == 'w' =>
+        {
             let results = app.rename_files();
             app.status_msg = format!("Renamed {} files.", results.len());
             app.running = false;
@@ -737,10 +835,7 @@ fn submit_rule_input(app: &mut App) {
                         replacement: buf,
                     });
                 } else {
-                    app.add_rule(RenameRule::FindReplace {
-                        find,
-                        replace: buf,
-                    });
+                    app.add_rule(RenameRule::FindReplace { find, replace: buf });
                 }
                 app.clear_input();
             }
