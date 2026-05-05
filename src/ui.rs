@@ -403,7 +403,7 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
         let file_style = if i == app.file_cursor {
             if is_active {
-                Style::default().add_modifier(Modifier::REVERSED)
+                Style::default().fg(Color::Black).bg(Color::White)
             } else {
                 Style::default().fg(Color::Gray).bg(Color::DarkGray)
             }
@@ -411,18 +411,45 @@ fn render_files_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
             Style::default()
         };
 
-        let output_style = if i == app.file_cursor {
+        let is_selected = i == app.file_cursor;
+        let output_prefix_style = if is_selected {
             if is_active {
-                Style::default().add_modifier(Modifier::REVERSED)
+                Style::default().fg(Color::Black).bg(Color::White)
             } else {
                 Style::default().fg(Color::Gray).bg(Color::DarkGray)
+            }
+        } else {
+            Style::default()
+        };
+        let output_style = if new_name != *file {
+            if is_selected {
+                Style::default().fg(Color::Red)
+            } else {
+                Style::default().fg(Color::Red)
             }
         } else {
             Style::default()
         };
 
         rows.push(Row::new(vec![format!("File: {}", file)]).style(file_style));
-        rows.push(Row::new(vec![format!("Output: {}", new_name)]).style(output_style));
+        if new_name != *file {
+            let output_bg = if is_selected {
+                if is_active {
+                    Color::White
+                } else {
+                    Color::DarkGray
+                }
+            } else {
+                Color::Reset
+            };
+            let output_line = Line::from(vec![
+                Span::styled("Output: ", output_prefix_style),
+                Span::styled(new_name.clone(), output_style),
+            ]).patch_style(Style::default().bg(output_bg));
+            rows.push(Row::new(vec![output_line]));
+        } else {
+            rows.push(Row::new(vec![format!("Output: {}", new_name)]).style(output_prefix_style));
+        }
     }
 
     let table = Table::new(rows, [Constraint::Min(0)]).block(block);
