@@ -92,7 +92,10 @@ fn render_rules_panel(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(Line::from(Span::styled(" Rename Rules ", title_style)))
+        .title(Line::from(Span::styled(
+            format!(" Rename Rules ({}) ", app.rules.len()),
+            title_style,
+        )))
         .border_style(border_style);
 
     let total_items = app.rules.len() + 1;
@@ -499,10 +502,8 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
 
     let status = Paragraph::new(Line::from(Span::styled(
         format!(
-            " {} | Files: {} | Rules: {}{} ",
+            " {}{} ",
             msg,
-            app.files.len(),
-            app.rules.len(),
             help_text
         ),
         Style::default()
