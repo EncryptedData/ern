@@ -345,6 +345,10 @@ fn render_rule_input_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &Ap
             "  enter:confirm  esc:cancel",
             Style::default().fg(Color::Gray),
         )),
+        RuleDialogMode::Suffix => Line::from(Span::styled(
+            "  enter:next  space:toggle checkbox  esc:cancel",
+            Style::default().fg(Color::Gray),
+        )),
         _ => Line::from(Span::styled(
             "  enter:next  esc:cancel",
             Style::default().fg(Color::Gray),
@@ -352,17 +356,34 @@ fn render_rule_input_dialog(frame: &mut ratatui::Frame<'_>, area: Rect, app: &Ap
     };
 
     #[allow(clippy::useless_vec)]
-    let lines = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            " Enter the value:",
-            Style::default().fg(Color::Gray),
-        )),
-        Line::from(""),
-        input_line,
-        Line::from(""),
-        hint_line,
-    ];
+    let lines = {
+        let mut lines = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                " Enter the value:",
+                Style::default().fg(Color::Gray),
+            )),
+            Line::from(""),
+            input_line,
+            Line::from(""),
+            hint_line,
+        ];
+
+        if app.dialog_mode == RuleDialogMode::Suffix {
+            let cb_text = if app.suffix_after_extension {
+                "[x] After extension"
+            } else {
+                "[ ] After extension"
+            };
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                cb_text,
+                Style::default().fg(Color::Yellow),
+            )));
+        }
+
+        lines
+    };
 
     let content = Paragraph::new(lines).block(block);
     frame.render_widget(content, dialog_area);
@@ -475,7 +496,7 @@ fn render_statusbar(frame: &mut ratatui::Frame<'_>, area: Rect, app: &App) {
                 _ => "  << Find/Replace (Regex) >>  enter:confirm  esc:cancel",
             },
             RuleDialogMode::Prefix => "  << Add Prefix >>  enter:confirm  esc:cancel",
-            RuleDialogMode::Suffix => "  << Add Suffix >>  enter:confirm  esc:cancel",
+            RuleDialogMode::Suffix => "  << Add Suffix >>  enter:confirm  space:toggle checkbox  esc:cancel",
             RuleDialogMode::RemovePattern => "  << Remove Pattern >>  enter:confirm  esc:cancel",
             RuleDialogMode::Numbering => match app.rule_input_step {
                 RuleInputStep::InputNumber => "  Start number: enter:next  esc:cancel",
@@ -835,6 +856,8 @@ fn handle_rule_input_key(app: &mut App, key: KeyEvent) {
                     }
                     _ => {}
                 }
+            } else if app.dialog_mode == RuleDialogMode::Suffix && c == ' ' {
+                app.suffix_after_extension = !app.suffix_after_extension;
             } else {
                 app.rule_input_buffer.push(c);
             }
@@ -873,7 +896,11 @@ fn submit_rule_input(app: &mut App) {
             app.clear_input();
         }
         (RuleDialogMode::Suffix, RuleInputStep::InputText) => {
-            app.add_rule(RenameRule::AddSuffix(buf));
+            let after_ext = app.suffix_after_extension;
+            app.add_rule(RenameRule::AddSuffix {
+                text: buf,
+                after_extension: after_ext,
+            });
             app.clear_input();
         }
         (RuleDialogMode::RemovePattern, RuleInputStep::InputText) => {

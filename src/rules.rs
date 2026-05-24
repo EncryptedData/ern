@@ -11,7 +11,10 @@ pub enum RenameRule {
         replacement: String,
     },
     AddPrefix(String),
-    AddSuffix(String),
+    AddSuffix {
+        text: String,
+        after_extension: bool,
+    },
     ChangeCase(CaseTransform),
     RemovePattern(String),
     Numbering {
@@ -53,7 +56,13 @@ impl fmt::Display for RenameRule {
                 write!(f, "[rx]find '{}' → '{}'", pattern, replacement)
             }
             RenameRule::AddPrefix(s) => write!(f, "prefix '{}'", s),
-            RenameRule::AddSuffix(s) => write!(f, "suffix '{}'", s),
+            RenameRule::AddSuffix { text, after_extension } => {
+                if *after_extension {
+                    write!(f, "suffix '{}' (after extension)", text)
+                } else {
+                    write!(f, "suffix '{}'", text)
+                }
+            }
             RenameRule::ChangeCase(t) => write!(f, "case {}", t),
             RenameRule::RemovePattern(s) => write!(f, "remove '{}'", s),
             RenameRule::Numbering {
@@ -87,8 +96,11 @@ impl RenameRule {
             RenameRule::AddPrefix(s) => {
                 new_name = format!("{}{}", s, new_name);
             }
-            RenameRule::AddSuffix(s) => {
-                new_name = format!("{}{}", new_name, s);
+            RenameRule::AddSuffix { text, after_extension } => {
+                if *after_extension && !ext.is_empty() {
+                    return format!("{}.{}{}", name, ext, text);
+                }
+                new_name = format!("{}{}", new_name, text);
             }
             RenameRule::ChangeCase(t) => {
                 new_name = apply_case(&new_name, t);
@@ -136,8 +148,8 @@ impl RenameRule {
             RenameRule::AddPrefix(s) => {
                 new_name = format!("{}{}", s, new_name);
             }
-            RenameRule::AddSuffix(s) => {
-                new_name = format!("{}{}", new_name, s);
+            RenameRule::AddSuffix { text, .. } => {
+                new_name = format!("{}{}", new_name, text);
             }
             RenameRule::ChangeCase(t) => {
                 new_name = apply_case(&new_name, t);

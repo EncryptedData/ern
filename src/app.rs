@@ -20,6 +20,7 @@ pub struct App {
     pub find_pattern: Option<String>,
     pub numbering_start: Option<u32>,
     pub numbering_width: Option<usize>,
+    pub suffix_after_extension: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,6 +80,7 @@ impl App {
             find_pattern: None,
             numbering_start: None,
             numbering_width: None,
+            suffix_after_extension: false,
         }
     }
 
@@ -137,6 +139,7 @@ impl App {
         self.find_pattern = None;
         self.numbering_start = None;
         self.numbering_width = None;
+        self.suffix_after_extension = false;
     }
 }
 
